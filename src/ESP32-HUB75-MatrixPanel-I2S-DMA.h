@@ -346,7 +346,7 @@ struct HUB75_I2S_CFG
       {
         pixel_color_depth_bits = 2;
       }
-      ESP_LOGW("HUB75_I2S_CFG", "Invalid pixel_color_depth_bits (%d): 2 <= pixel_color_depth_bits <= %d, choosing nearest valid %d", _pixel_color_depth_bits, PIXEL_COLOR_DEPTH_BITS_MAX, pixel_color_depth_bits);
+      ESP_LOGW("hub75.cfg", "Invalid pixel_color_depth_bits (%d): 2 <= pixel_color_depth_bits <= %d, choosing nearest valid %d", _pixel_color_depth_bits, PIXEL_COLOR_DEPTH_BITS_MAX, pixel_color_depth_bits);
     }
     else
     {
@@ -411,69 +411,14 @@ public:
     setCfg(opts);
   }
 
-  /* Propagate the DMA pin configuration, allocate DMA buffs and start data output, initially blank */
-  bool begin()
-  {
-
-    if (initialized)
-      return true; // we don't do this twice or more!
-    if (!config_set)
-      return false;
-
-    ESP_LOGI("begin()", "Using GPIO %d for R1_PIN", m_cfg.gpio.r1);
-    ESP_LOGI("begin()", "Using GPIO %d for G1_PIN", m_cfg.gpio.g1);
-    ESP_LOGI("begin()", "Using GPIO %d for B1_PIN", m_cfg.gpio.b1);
-    ESP_LOGI("begin()", "Using GPIO %d for R2_PIN", m_cfg.gpio.r2);
-    ESP_LOGI("begin()", "Using GPIO %d for G2_PIN", m_cfg.gpio.g2);
-    ESP_LOGI("begin()", "Using GPIO %d for B2_PIN", m_cfg.gpio.b2);
-    ESP_LOGI("begin()", "Using GPIO %d for A_PIN", m_cfg.gpio.a);
-    ESP_LOGI("begin()", "Using GPIO %d for B_PIN", m_cfg.gpio.b);
-    ESP_LOGI("begin()", "Using GPIO %d for C_PIN", m_cfg.gpio.c);
-    ESP_LOGI("begin()", "Using GPIO %d for D_PIN", m_cfg.gpio.d);
-    ESP_LOGI("begin()", "Using GPIO %d for E_PIN", m_cfg.gpio.e);
-    ESP_LOGI("begin()", "Using GPIO %d for LAT_PIN", m_cfg.gpio.lat);
-    ESP_LOGI("begin()", "Using GPIO %d for OE_PIN", m_cfg.gpio.oe);
-    ESP_LOGI("begin()", "Using GPIO %d for CLK_PIN", m_cfg.gpio.clk);
-
-    // initialize some specific panel drivers
-    if (m_cfg.driver)
-      shiftDriver(m_cfg);
-
-#if defined(SPIRAM_DMA_BUFFER)
-    // Trick library into dropping colour depth slightly when using PSRAM.
-    // Actual output clockrate override occurs in configureDMA
-    m_cfg.i2sspeed = HUB75_I2S_CFG::HZ_8M;
-#endif
-
-    /* As DMA buffers are dynamically allocated, we must allocated in begin()
-     * Ref: https://github.com/espressif/arduino-esp32/issues/831
-     */
-    if (!allocateDMAmemory())
-    {
-      return false;
-    } // couldn't even get the basic ram required.
-
-    // Flush the DMA buffers prior to configuring DMA - Avoid visual artefacts on boot.
-    resetbuffers(); // Must fill the DMA buffer with the initial output bit sequence or the panel will display garbage
-
-    // Setup the ESP32 DMA Engine. Sprite_TM built this stuff.
-    configureDMA(m_cfg); // DMA and I2S configuration and setup
-
-    // showDMABuffer(); // show backbuf_id of 0
-
-    if (!initialized)
-    {
-      ESP_LOGE("being()", "MatrixPanel_I2S_DMA::begin() failed!");
-    }
-
-    return initialized;
-  }
-
   // Obj destructor
   virtual ~MatrixPanel_I2S_DMA()
   {
     dma_bus.release();
   }
+
+  /* Propagate the DMA pin configuration, allocate DMA buffs and start data output, initially blank */
+  bool begin();
 
   /*
    *  overload for compatibility
@@ -622,22 +567,7 @@ public:
   /**
    * @param uint8_t b - 8-bit brightness value
    */
-  void setBrightness(const uint8_t b)
-  {
-    if (!initialized)
-    {
-      ESP_LOGI("setBrightness()", "Tried to set output brightness before begin()");
-      return;
-    }
-
-    brightness = b;
-    brtCtrlOEv2(b, 0);
-
-    if (m_cfg.double_buff)
-    {
-      brtCtrlOEv2(b, 1);
-    }
-  }
+  void setBrightness(const uint8_t b);
 
   /**
    * @param uint8_t b - 8-bit brightness value

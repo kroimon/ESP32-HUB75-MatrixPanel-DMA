@@ -32,15 +32,17 @@
  */
 #define PIXEL_COLOR_MASK_BIT(color_depth_index, mask_offset) (1 << (color_depth_index + mask_offset))
 
+static const char *const TAG = "hub75";
+
 bool MatrixPanel_I2S_DMA::allocateDMAmemory()
 {
 
-  ESP_LOGI("I2S-DMA", "Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-  ESP_LOGI("I2S-DMA", "Free SPIRAM: %d", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  ESP_LOGI(TAG, "Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+  ESP_LOGI(TAG, "Free SPIRAM: %d", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
   // Alright, theoretically we should be OK, so let us do this, so
   // lets allocate a chunk of memory for each row (a row could span multiple panels if chaining is in place)
-  ESP_LOGI("I2S-DMA", "allocating rowBitStructs with pixel_color_depth_bits of %d", m_cfg.getPixelColorDepthBits());
+  ESP_LOGI(TAG, "allocating rowBitStructs with pixel_color_depth_bits of %d", m_cfg.getPixelColorDepthBits());
   // iterate through number of rows, allocate memory for each
   size_t allocated_fb_memory = 0;
 
@@ -55,8 +57,8 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
 
       if (ptr->data == nullptr)
       {
-        ESP_LOGE("I2S-DMA", "CRITICAL ERROR: Not enough memory for requested colour depth! Please reduce pixel_color_depth_bits value.\r\n");
-        ESP_LOGE("I2S-DMA", "Could not allocate rowBitStruct %d!.\r\n", malloc_num);
+        ESP_LOGE(TAG, "CRITICAL ERROR: Not enough memory for requested colour depth! Please reduce pixel_color_depth_bits value.\r\n");
+        ESP_LOGE(TAG, "Could not allocate rowBitStruct %d!.\r\n", malloc_num);
 
         return false;
         // TODO: should we release all previous rowBitStructs here???
@@ -67,7 +69,7 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
       ++frame_buffer[fb].rows;
     }
   }
-  ESP_LOGI("I2S-DMA", "Allocating %d bytes memory for DMA BCM framebuffer(s).", allocated_fb_memory);
+  ESP_LOGI(TAG, "Allocating %d bytes memory for DMA BCM framebuffer(s).", allocated_fb_memory);
 
   // calculate the lowest LSBMSB_TRANSITION_BIT value that will fit in memory that will meet or exceed the configured refresh rate
   
@@ -75,7 +77,7 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
   
 #if !defined(FORCE_COLOR_DEPTH)
 
-  ESP_LOGI("I2S-DMA", "Minimum visual refresh rate (scan rate from panel top to bottom) requested: %d Hz", m_cfg.min_refresh_rate);
+  ESP_LOGI(TAG, "Minimum visual refresh rate (scan rate from panel top to bottom) requested: %d Hz", m_cfg.min_refresh_rate);
 
   while (1)
   {
@@ -93,7 +95,7 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
     int actualRefreshRate = 1000000000UL / (nsPerFrame);
     calculated_refresh_rate = actualRefreshRate;
 
-    ESP_LOGW("I2S-DMA", "lsbMsbTransitionBit of %d gives %d Hz refresh rate.", lsbMsbTransitionBit, actualRefreshRate);
+    ESP_LOGW(TAG, "lsbMsbTransitionBit of %d gives %d Hz refresh rate.", lsbMsbTransitionBit, actualRefreshRate);
 
     if (actualRefreshRate > m_cfg.min_refresh_rate)
       break;
@@ -106,10 +108,10 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
 
   if (lsbMsbTransitionBit > 0)
   {
-    ESP_LOGW("I2S-DMA", "lsbMsbTransitionBit of %d used to achieve refresh rate of %d Hz. Percieved colour depth to the eye may be reduced.", lsbMsbTransitionBit, m_cfg.min_refresh_rate);
+    ESP_LOGW(TAG, "lsbMsbTransitionBit of %d used to achieve refresh rate of %d Hz. Percieved colour depth to the eye may be reduced.", lsbMsbTransitionBit, m_cfg.min_refresh_rate);
   }
 
-  ESP_LOGI("I2S-DMA", "DMA has pixel_color_depth_bits of %d", m_cfg.getPixelColorDepthBits() - lsbMsbTransitionBit);
+  ESP_LOGI(TAG, "DMA has pixel_color_depth_bits of %d", m_cfg.getPixelColorDepthBits() - lsbMsbTransitionBit);
 
 #endif
 
@@ -123,14 +125,14 @@ bool MatrixPanel_I2S_DMA::allocateDMAmemory()
     numDMAdescriptorsPerRow += (1 << (i - lsbMsbTransitionBit - 1));
   }
 
-  ESP_LOGI("I2S-DMA", "Recalculated number of DMA descriptors per row: %d", numDMAdescriptorsPerRow);
+  ESP_LOGI(TAG, "Recalculated number of DMA descriptors per row: %d", numDMAdescriptorsPerRow);
 
   // Refer to 'DMA_LL_PAYLOAD_SPLIT' code in configureDMA() below to understand why this exists.
   // numDMAdescriptorsPerRow is also used to calculate descount which is super important in i2s_parallel_config_t SoC DMA setup.
   if (frame_buffer[0].rowBits[0]->getColorDepthSize() > DMA_MAX)
   {
 
-    ESP_LOGW("I2S-DMA", "rowBits struct is too large to fit in one DMA transfer payload, splitting required. Adding %d DMA descriptors\n", m_cfg.getPixelColorDepthBits() - 1);
+    ESP_LOGW(TAG, "rowBits struct is too large to fit in one DMA transfer payload, splitting required. Adding %d DMA descriptors\n", m_cfg.getPixelColorDepthBits() - 1);
 
     numDMAdescriptorsPerRow += m_cfg.getPixelColorDepthBits() - 1;
     // Note: If numDMAdescriptorsPerRow is even just one descriptor too large, DMA linked list will not correctly loop.
@@ -261,7 +263,7 @@ void MatrixPanel_I2S_DMA::configureDMA(const HUB75_I2S_CFG &_cfg)
 
   } // end frame rows
 
-  ESP_LOGI("I2S-DMA", "%d DMA descriptors linked to buffer data.", current_dmadescriptor_offset);
+  ESP_LOGI(TAG, "%d DMA descriptors linked to buffer data.", current_dmadescriptor_offset);
 
   //
   //    Setup DMA and Output to GPIO
@@ -302,7 +304,7 @@ void MatrixPanel_I2S_DMA::configureDMA(const HUB75_I2S_CFG &_cfg)
   flipDMABuffer(); // display back buffer 0, draw to 1, ignored if double buffering isn't enabled.
 
   // i2s_parallel_send_dma(ESP32_I2S_DEVICE, &dmadesc_a[0]);
-  ESP_LOGI("I2S-DMA", "DMA setup completed");
+  ESP_LOGI(TAG, "DMA setup completed");
 
 } // end initMatrixDMABuff
 
@@ -730,6 +732,80 @@ bool MatrixPanel_I2S_DMA::begin(const HUB75_I2S_CFG &cfg)
     return false;
 
   return begin();
+}
+
+bool MatrixPanel_I2S_DMA::begin()
+{
+
+  if (initialized)
+    return true; // we don't do this twice or more!
+  if (!config_set)
+    return false;
+
+  ESP_LOGI(TAG, "Using GPIO %d for R1_PIN", m_cfg.gpio.r1);
+  ESP_LOGI(TAG, "Using GPIO %d for G1_PIN", m_cfg.gpio.g1);
+  ESP_LOGI(TAG, "Using GPIO %d for B1_PIN", m_cfg.gpio.b1);
+  ESP_LOGI(TAG, "Using GPIO %d for R2_PIN", m_cfg.gpio.r2);
+  ESP_LOGI(TAG, "Using GPIO %d for G2_PIN", m_cfg.gpio.g2);
+  ESP_LOGI(TAG, "Using GPIO %d for B2_PIN", m_cfg.gpio.b2);
+  ESP_LOGI(TAG, "Using GPIO %d for A_PIN", m_cfg.gpio.a);
+  ESP_LOGI(TAG, "Using GPIO %d for B_PIN", m_cfg.gpio.b);
+  ESP_LOGI(TAG, "Using GPIO %d for C_PIN", m_cfg.gpio.c);
+  ESP_LOGI(TAG, "Using GPIO %d for D_PIN", m_cfg.gpio.d);
+  ESP_LOGI(TAG, "Using GPIO %d for E_PIN", m_cfg.gpio.e);
+  ESP_LOGI(TAG, "Using GPIO %d for LAT_PIN", m_cfg.gpio.lat);
+  ESP_LOGI(TAG, "Using GPIO %d for OE_PIN", m_cfg.gpio.oe);
+  ESP_LOGI(TAG, "Using GPIO %d for CLK_PIN", m_cfg.gpio.clk);
+
+  // initialize some specific panel drivers
+  if (m_cfg.driver)
+    shiftDriver(m_cfg);
+
+#if defined(SPIRAM_DMA_BUFFER)
+  // Trick library into dropping colour depth slightly when using PSRAM.
+  // Actual output clockrate override occurs in configureDMA
+  m_cfg.i2sspeed = HUB75_I2S_CFG::HZ_8M;
+#endif
+
+  /* As DMA buffers are dynamically allocated, we must allocated in begin()
+    * Ref: https://github.com/espressif/arduino-esp32/issues/831
+    */
+  if (!allocateDMAmemory())
+  {
+    return false;
+  } // couldn't even get the basic ram required.
+
+  // Flush the DMA buffers prior to configuring DMA - Avoid visual artefacts on boot.
+  resetbuffers(); // Must fill the DMA buffer with the initial output bit sequence or the panel will display garbage
+
+  // Setup the ESP32 DMA Engine. Sprite_TM built this stuff.
+  configureDMA(m_cfg); // DMA and I2S configuration and setup
+
+  // showDMABuffer(); // show backbuf_id of 0
+
+  if (!initialized)
+  {
+    ESP_LOGE(TAG, "MatrixPanel_I2S_DMA::begin() failed!");
+  }
+
+  return initialized;
+}
+
+void MatrixPanel_I2S_DMA::setBrightness(const uint8_t b)
+{
+  if (!initialized)
+  {
+    ESP_LOGI(TAG, "Tried to set output brightness before begin()");
+    return;
+  }
+
+  brightness = b;
+  brtCtrlOEv2(b, 0);
+
+  if (m_cfg.double_buff)
+  {
+    brtCtrlOEv2(b, 1);
+  }
 }
 
 /**

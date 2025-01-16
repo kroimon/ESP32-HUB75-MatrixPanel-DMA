@@ -27,6 +27,8 @@
   #include "gdma_lcd_parallel16.hpp"
   #include "esp_attr.h"
 
+  static const char *const TAG = "hub75.esp32s3";
+
 /*
   dma_descriptor_t desc;          // DMA descriptor for testing
 
@@ -87,7 +89,7 @@
     esp_rom_delay_us(1000);
 
 //    uint32_t lcd_clkm_div_num = ((160000000 + 1) / _cfg.bus_freq);
-//    ESP_LOGI("", "Clock divider is %d", lcd_clkm_div_num);     
+//    ESP_LOGI(TAG, "Clock divider is %d", lcd_clkm_div_num);     
 
     // Configure LCD clock. Since this program generates human-perceptible
     // output and not data for LED matrices or NeoPixels, use almost the
@@ -123,7 +125,7 @@
     // If using an ESP32-S3 with slower (half the bandwidth) Q-SPI (Quad), then the divisor will need to be '20' (8Mhz) which wil be flickery! 
     if (_cfg.psram_clk_override) 
     {
-        ESP_LOGI("S3", "DMA buffer is on PSRAM. Limiting clockspeed....");   
+        ESP_LOGI(TAG, "DMA buffer is on PSRAM. Limiting clockspeed....");   
         //LCD_CAM.lcd_clock.lcd_clkm_div_num = 10; //16mhz is the fasted the Octal PSRAM can support it seems from faptastic's testing using an N8R8 variant (Octal SPI PSRAM).
         
         // https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-DMA/issues/441#issuecomment-1513631890
@@ -151,8 +153,8 @@
 
     }
 
-    ESP_LOGI("S3", "Clock divider is %d", (int)LCD_CAM.lcd_clock.lcd_clkm_div_num);
-    ESP_LOGD("S3", "Resulting output clock frequency: %d Mhz",  (int)(160000000L/LCD_CAM.lcd_clock.lcd_clkm_div_num)); 
+    ESP_LOGI(TAG, "Clock divider is %d", (int)LCD_CAM.lcd_clock.lcd_clkm_div_num);
+    ESP_LOGD(TAG, "Resulting output clock frequency: %d Mhz",  (int)(160000000L/LCD_CAM.lcd_clock.lcd_clkm_div_num)); 
 
 
     LCD_CAM.lcd_clock.lcd_clkm_div_a = 1;     // 0/1 fractional divide
@@ -320,7 +322,7 @@
 
   void Bus_Parallel16::enable_double_dma_desc(void)
   {
-        ESP_LOGI("S3", "Enabled support for secondary DMA buffer.");    
+        ESP_LOGI(TAG, "Enabled support for secondary DMA buffer.");    
        _double_dma_buffer = true;
   }
 
@@ -330,13 +332,13 @@
     if (_dmadesc_a) heap_caps_free(_dmadesc_a); // free all dma descrptios previously
     _dmadesc_count = len;
 
-    ESP_LOGD("S3", "Allocating %d bytes memory for DMA descriptors.", (int)sizeof(HUB75_DMA_DESCRIPTOR_T) * len);        
+    ESP_LOGD(TAG, "Allocating %d bytes memory for DMA descriptors.", (int)sizeof(HUB75_DMA_DESCRIPTOR_T) * len);        
 
     _dmadesc_a= (HUB75_DMA_DESCRIPTOR_T*)heap_caps_malloc(sizeof(HUB75_DMA_DESCRIPTOR_T) * len, MALLOC_CAP_DMA);
   
     if (_dmadesc_a == nullptr)
     {
-      ESP_LOGE("S3", "ERROR: Couldn't malloc _dmadesc_a. Not enough memory.");
+      ESP_LOGE(TAG, "ERROR: Couldn't malloc _dmadesc_a. Not enough memory.");
       return false;
     }
 
@@ -346,7 +348,7 @@
     
       if (_dmadesc_b == nullptr)
       {
-        ESP_LOGE("S3", "ERROR: Couldn't malloc _dmadesc_b. Not enough memory.");
+        ESP_LOGE(TAG, "ERROR: Couldn't malloc _dmadesc_b. Not enough memory.");
         _double_dma_buffer = false;
       }
     }
@@ -365,7 +367,7 @@
 
     if (size > MAX_DMA_LEN) {
       size = MAX_DMA_LEN;
-      ESP_LOGW("S3", "Creating DMA descriptor which links to payload with size greater than MAX_DMA_LEN!");            
+      ESP_LOGW(TAG, "Creating DMA descriptor which links to payload with size greater than MAX_DMA_LEN!");            
     }
 
     if ( dmadesc_b == true)
@@ -393,7 +395,7 @@
         
       if ( _dmadesc_a_idx >= _dmadesc_count)
       {
-        ESP_LOGE("S3", "Attempted to create more DMA descriptors than allocated. Expecting max %u descriptors.", (unsigned int)_dmadesc_count);          
+        ESP_LOGE(TAG, "Attempted to create more DMA descriptors than allocated. Expecting max %u descriptors.", (unsigned int)_dmadesc_count);          
         return;
       }
 
